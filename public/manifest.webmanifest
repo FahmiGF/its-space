@@ -1,0 +1,18 @@
+{
+  "name": "ITS Space — Facility Booking",
+  "short_name": "ITS Space",
+  "description": "Cari dan pesan ruang serta fasilitas kampus dalam satu platform.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f2ea",
+  "theme_color": "#10201b",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

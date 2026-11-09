@@ -1,0 +1,11 @@
+.pgdata
+.pg.log
+.initdb.log
+.qa
+.env
+.env.*
+!.env.example
+*.log
+.neon
+node_modules
+.next
