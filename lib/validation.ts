@@ -76,8 +76,30 @@ export const facilityStatusSchema = z.object({
 });
 
 export const profileSchema = z.object({
-  name: z.string().trim().min(2).max(100),
-  organization: z.string().trim().max(120).optional().or(z.literal("")),
+  name: z.string().trim().min(2, "Nama minimal 2 karakter.").max(100, "Nama terlalu panjang."),
+  organization: z.string().trim().max(120, "Nama organisasi terlalu panjang.").optional().or(z.literal("")),
+  phone: z
+    .string()
+    .trim()
+    .max(30, "Nomor telepon terlalu panjang.")
+    .regex(/^[0-9+\-\s()]*$/, "Nomor telepon tidak valid.")
+    .optional()
+    .or(z.literal("")),
+  notifyBooking: z.boolean().default(true),
+  notifyReminders: z.boolean().default(true),
+  notifyAnnouncements: z.boolean().default(false),
 });
 
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Kata sandi saat ini wajib diisi.").max(128),
+    newPassword: password,
+    confirmPassword: z.string().min(1, "Konfirmasi kata sandi wajib diisi.").max(128),
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    message: "Konfirmasi kata sandi tidak cocok.",
+    path: ["confirmPassword"],
+  });
+
 export type BookingCreateInput = z.infer<typeof bookingCreateSchema>;
+export type ProfileInput = z.infer<typeof profileSchema>;

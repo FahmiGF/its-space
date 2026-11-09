@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import { withTransaction, query, isExclusionViolation } from "./db";
 import { HttpError } from "./http";
 import { jakartaDateTime, minutesFromTime } from "./time";
-import type { Booking, BookingStatus, FacilityCategory } from "./types";
+import type { Booking, BookingStatus, FacilityCategory, PaymentStatus } from "./types";
 import type { BookingCreateInput } from "./validation";
 
 type BookingRow = {
@@ -26,6 +26,8 @@ type BookingRow = {
   facility_image: string | null;
   facility_capacity: number;
   facility_approval: boolean;
+  amount_due: number;
+  payment_status: PaymentStatus;
   building_name: string;
   building_code: string;
   user_id?: string;
@@ -48,6 +50,8 @@ function mapBooking(row: BookingRow): Booking {
     createdAt: row.created_at.toISOString(),
     approvedAt: row.approved_at?.toISOString() ?? null,
     checkedInAt: row.checked_in_at?.toISOString() ?? null,
+    amountDue: row.amount_due,
+    paymentStatus: row.payment_status,
     facility: {
       id: row.facility_id,
       slug: row.facility_slug,
@@ -79,6 +83,8 @@ const BOOKING_SELECT = `
          f.id AS facility_id, f.slug AS facility_slug, f.name AS facility_name,
          f.category AS facility_category, f.image_url AS facility_image,
          f.capacity AS facility_capacity, f.requires_approval AS facility_approval,
+         COALESCE(p.amount, (f.price_per_hour * ceil(extract(epoch from (b.ends_at - b.starts_at)) / 3600))::int, 0) AS amount_due,
+         COALESCE(p.status, 'none') AS payment_status,
          bld.name AS building_name, bld.code AS building_code,
          u.id AS user_id, u.name AS user_name, u.email AS user_email,
          u.organization AS user_organization
@@ -86,6 +92,7 @@ const BOOKING_SELECT = `
   JOIN facilities f ON f.id = b.facility_id
   JOIN buildings bld ON bld.id = f.building_id
   JOIN users u ON u.id = b.user_id
+  LEFT JOIN payments p ON p.booking_id = b.id
 `;
 
 function newReference(): string {
@@ -173,8 +180,9 @@ export async function createBooking(userId: string, input: BookingCreateInput): 
     closes_at: string;
     requires_approval: boolean;
     buffer_minutes: number;
+    price_per_hour: number;
   }>(
-    `SELECT id, name, capacity, status, opens_at, closes_at, requires_approval, buffer_minutes
+    `SELECT id, name, capacity, status, opens_at, closes_at, requires_approval, buffer_minutes, price_per_hour
      FROM facilities WHERE slug = $1 LIMIT 1`,
     [input.facilitySlug],
   );
@@ -230,6 +238,14 @@ export async function createBooking(userId: string, input: BookingCreateInput): 
         ],
       );
       const id = inserted.rows[0].id;
+      const amountDue = facility.price_per_hour * Math.ceil((endsAt.getTime() - startsAt.getTime()) / 3600000);
+      if (amountDue > 0) {
+        await client.query(
+          `INSERT INTO payments (booking_id, order_id, amount)
+           VALUES ($1, $2, $3) ON CONFLICT (booking_id) DO NOTHING`,
+          [id, `${reference}-PAY`, amountDue],
+        );
+      }
       await notify(
         client,
         userId,
@@ -405,6 +421,11 @@ export async function cancelBooking(
        WHERE id = $1`,
       [id],
     );
+    await client.query(
+      `UPDATE payments SET status = 'failed', updated_at = now()
+       WHERE booking_id = $1 AND status = 'pending'`,
+      [id],
+    );
     await notify(
       client,
       booking.user_id,
@@ -432,10 +453,15 @@ export async function checkInBooking(token: string, adminId: string): Promise<Bo
       starts_at: Date;
       ends_at: Date;
       name: string;
+      price_per_hour: number;
+      payment_status: PaymentStatus;
     }>(
-      `SELECT b.user_id, b.reference, b.status, b.starts_at, b.ends_at, f.name
-       FROM bookings b JOIN facilities f ON f.id = b.facility_id
-       WHERE b.id = $1 FOR UPDATE`,
+      `SELECT b.user_id, b.reference, b.status, b.starts_at, b.ends_at, f.name,
+              f.price_per_hour, COALESCE(p.status, 'none') AS payment_status
+       FROM bookings b
+       JOIN facilities f ON f.id = b.facility_id
+       LEFT JOIN payments p ON p.booking_id = b.id
+       WHERE b.id = $1 FOR UPDATE OF b`,
       [bookingId],
     );
     const booking = rows.rows[0];
@@ -443,6 +469,9 @@ export async function checkInBooking(token: string, adminId: string): Promise<Bo
     if (booking.status === "checked_in") return;
     if (booking.status !== "approved") {
       throw new HttpError(409, "Hanya booking yang disetujui yang dapat check-in.");
+    }
+    if (booking.price_per_hour > 0 && booking.payment_status !== "paid") {
+      throw new HttpError(409, "Selesaikan pembayaran booking sebelum check-in.");
     }
     const now = Date.now();
     if (now < booking.starts_at.getTime() - 30 * 60 * 1000) {

@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 DO $$ BEGIN
   CREATE TYPE user_role AS ENUM ('student', 'staff', 'admin');
@@ -96,6 +97,8 @@ CREATE TABLE IF NOT EXISTS facilities (
 CREATE INDEX IF NOT EXISTS facilities_category_idx ON facilities (category);
 CREATE INDEX IF NOT EXISTS facilities_building_idx ON facilities (building_id);
 CREATE INDEX IF NOT EXISTS facilities_status_idx ON facilities (status);
+CREATE INDEX IF NOT EXISTS facilities_name_trgm_idx ON facilities USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS facilities_description_trgm_idx ON facilities USING gin (description gin_trgm_ops);
 
 CREATE TABLE IF NOT EXISTS bookings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -125,6 +128,8 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE INDEX IF NOT EXISTS bookings_facility_time_idx ON bookings (facility_id, starts_at);
 CREATE INDEX IF NOT EXISTS bookings_user_idx ON bookings (user_id, starts_at DESC);
 CREATE INDEX IF NOT EXISTS bookings_status_idx ON bookings (status);
+CREATE INDEX IF NOT EXISTS bookings_facility_status_time_idx ON bookings (facility_id, status, starts_at);
+CREATE INDEX IF NOT EXISTS bookings_created_at_idx ON bookings (created_at DESC);
 
 CREATE OR REPLACE FUNCTION set_booking_slot_range()
 RETURNS trigger
@@ -150,7 +155,10 @@ DO $$ BEGIN
   ALTER TABLE bookings ADD CONSTRAINT bookings_no_overlap
   EXCLUDE USING gist (facility_id WITH =, slot_range WITH &&)
   WHERE (status IN ('pending', 'approved', 'checked_in'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN duplicate_table THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -186,5 +194,34 @@ CREATE TABLE IF NOT EXISTS maintenance_blocks (
 );
 
 CREATE INDEX IF NOT EXISTS maintenance_facility_time_idx ON maintenance_blocks (facility_id, starts_at);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_booking boolean NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_reminders boolean NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_announcements boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+ALTER TABLE facilities ADD COLUMN IF NOT EXISTS price_per_hour integer NOT NULL DEFAULT 0
+  CHECK (price_per_hour >= 0);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id uuid NOT NULL UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
+  provider text NOT NULL DEFAULT 'midtrans',
+  order_id text NOT NULL UNIQUE,
+  amount integer NOT NULL CHECK (amount > 0),
+  currency text NOT NULL DEFAULT 'IDR',
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'paid', 'failed', 'expired', 'refunded')),
+  snap_token text,
+  redirect_url text,
+  paid_at timestamptz,
+  raw_payload jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS payments_booking_idx ON payments (booking_id);
+CREATE INDEX IF NOT EXISTS payments_status_idx ON payments (status);
 
 COMMIT;

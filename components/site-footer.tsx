@@ -25,9 +25,12 @@ export function SiteFooter() {
         <div>
           <h3>Layanan</h3>
           <Link href="/dashboard">Booking saya</Link>
+          <Link href="/settings">Pengaturan profil</Link>
+          <Link href="/locations">Lokasi kampus</Link>
+          <Link href="/help">Pusat bantuan</Link>
+          <Link href="/tutorial">Tutorial booking</Link>
+          <Link href="/emergency" className="footer-emergency">Emergency call</Link>
           <Link href="/status">Status sistem</Link>
-          <Link href="/login">Masuk akun</Link>
-          <Link href="/#cara-kerja">Panduan penggunaan</Link>
         </div>
         <div>
           <h3>Kontak</h3>

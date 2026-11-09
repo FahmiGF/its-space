@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { BookingPanel } from "@/components/booking-panel";
 import { CategoryIcon } from "@/components/category-icon";
+import { formatRupiah } from "@/lib/format";
 import { FacilityBadge } from "@/components/status-badge";
 import { getCurrentUser } from "@/lib/auth";
 import { CATEGORY_META } from "@/lib/constants";
@@ -123,6 +124,10 @@ export default async function FacilityDetailPage({ params, searchParams }: Props
                 <span>Buffer slot</span>
                 <strong>15 menit</strong>
               </div>
+              <div className="detail-fact">
+                <span>Tarif</span>
+                <strong>{facility.pricePerHour > 0 ? `${formatRupiah(facility.pricePerHour)}/jam` : "Gratis"}</strong>
+              </div>
             </div>
 
             <section className="detail-section">
@@ -161,6 +166,18 @@ export default async function FacilityDetailPage({ params, searchParams }: Props
               </ol>
             </section>
 
+            {facility.pricePerHour > 0 && (
+              <section className="detail-section payment-note">
+                <span className="eyebrow">Pembayaran</span>
+                <h2>Tarif transparan, dibayar setelah booking.</h2>
+                <p>
+                  Total {formatRupiah(facility.pricePerHour)} per jam. Setelah booking
+                  dibuat, tiket menampilkan tombol pembayaran Midtrans. Check-in dibuka
+                  setelah pembayaran lunas.
+                </p>
+              </section>
+            )}
+
             <div className="detail-side-grid">
               <div className="info-card">
                 <span className="eyebrow">Lokasi</span>
@@ -198,6 +215,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Props
             week={week}
             today={today}
             signedIn={Boolean(user)}
+            defaultOrganization={user?.organization ?? ""}
             loginHref={`/login?next=${encodeURIComponent(`/facilities/${facility.slug}`)}`}
           />
         </div>

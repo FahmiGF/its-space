@@ -87,6 +87,29 @@ try {
   const dashboard = await fetch(`${base}/dashboard`, { headers: { Cookie: student.cookie } });
   dashboard.status === 200 ? pass("dashboard page") : fail("dashboard page", String(dashboard.status));
 
+  const settingsPage = await fetch(`${base}/settings`, { headers: { Cookie: student.cookie } });
+  settingsPage.status === 200 ? pass("settings page") : fail("settings page", String(settingsPage.status));
+
+  const profile = await api("/api/profile", student.cookie, {
+    method: "PATCH",
+    body: JSON.stringify({
+      name: student.user.name,
+      organization: student.user.organization || "QA ITS Space",
+      phone: "081234567890",
+      notifyBooking: true,
+      notifyReminders: true,
+      notifyAnnouncements: false,
+    }),
+  });
+  profile.response.status === 200 && profile.data.profile
+    ? pass("profile update", profile.data.profile.name)
+    : fail("profile update", `${profile.response.status} ${JSON.stringify(profile.data)}`);
+
+  for (const path of ["/help", "/tutorial", "/emergency", "/locations"]) {
+    const page = await fetch(`${base}${path}`);
+    page.status === 200 ? pass(`public page ${path}`) : fail(`public page ${path}`, String(page.status));
+  }
+
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
   const bookingDate = addDays(today, 12);
   const body = {
@@ -198,6 +221,32 @@ try {
     }
   } else {
     console.log(`SKIP  QR check-in — outside operating hours (${start}–${end})`);
+  }
+
+  const paidDate = addDays(today, 13);
+  const paid = await api("/api/bookings", student.cookie, {
+    method: "POST",
+    body: JSON.stringify({
+      facilitySlug: "gor-indoor",
+      date: paidDate,
+      start: "09:00",
+      end: "11:00",
+      attendees: 20,
+      purpose: "Smoke test tarif dan payment record fasilitas premium",
+      organization: "QA ITS Space",
+      agreement: true,
+    }),
+  });
+  const paidBooking = paid.data?.booking;
+  paid.response.status === 201 && paidBooking?.amountDue === 600000 && paidBooking?.paymentStatus === "pending"
+    ? pass("paid booking amount", `${paidBooking.reference} · Rp600.000 · pending`)
+    : fail("paid booking amount", `${paid.response.status} ${JSON.stringify(paid.data)}`);
+  if (paid.response.ok) {
+    const payment = await api(`/api/payments/${paidBooking.id}`, student.cookie, { method: "POST" });
+    payment.response.status === 409 && payment.data.code === "PAYMENT_NOT_AVAILABLE"
+      ? pass("payment waits for approval")
+      : fail("payment waits for approval", `${payment.response.status} ${JSON.stringify(payment.data)}`);
+    await api(`/api/bookings/${paidBooking.id}/cancel`, student.cookie, { method: "POST" });
   }
 
   const unauthorized = await api("/api/admin/checkin", student.cookie, {

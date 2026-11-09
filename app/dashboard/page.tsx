@@ -7,6 +7,7 @@ import {
   Compass,
   LayoutDashboard,
   MapPin,
+  Settings,
   ShieldCheck,
   Ticket,
 } from "lucide-react";
@@ -254,6 +255,7 @@ export default async function DashboardPage() {
               <strong>{user.name}</strong>
               <span>{user.email}</span>
               <span>{user.organization || "Mahasiswa ITS"}</span>
+              <Link href="/settings"><Settings size={12} /> Pengaturan profil</Link>
               {user.role === "admin" && (
                 <Link href="/admin"><LayoutDashboard size={12} /> Buka dashboard admin</Link>
               )}
@@ -272,6 +274,10 @@ export default async function DashboardPage() {
               <p className="small muted" style={{ display: "flex", gap: 5, marginBottom: 0 }}>
                 <Clock3 size={13} /> Waktu Indonesia Barat (WIB)
               </p>
+              <div className="dashboard-help-links">
+                <Link href="/help">Pusat bantuan</Link>
+                <Link href="/emergency">Emergency call</Link>
+              </div>
             </section>
           </aside>
         </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingCreateSchema, registerSchema } from "../lib/validation";
+import { bookingCreateSchema, passwordChangeSchema, profileSchema, registerSchema } from "../lib/validation";
 
 const validBooking = {
   facilitySlug: "auditorium-utama",
@@ -29,6 +29,29 @@ describe("booking validation", () => {
     const result = bookingCreateSchema.safeParse({
       ...validBooking,
       agreement: false,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("profile validation", () => {
+  it("accepts profile preferences", () => {
+    const result = profileSchema.safeParse({
+      name: "Raka Mahendra",
+      organization: "Teknik Informatika",
+      phone: "081234567890",
+      notifyBooking: true,
+      notifyReminders: false,
+      notifyAnnouncements: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects mismatched password confirmation", () => {
+    const result = passwordChangeSchema.safeParse({
+      currentPassword: "OldPassword1",
+      newPassword: "NewPassword2",
+      confirmPassword: "NewPassword3",
     });
     expect(result.success).toBe(false);
   });

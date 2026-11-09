@@ -53,6 +53,21 @@ await page.screenshot({ path: path.join(output, "detail-desktop.png"), fullPage:
 const panelVisible = await page.locator(".booking-panel").isVisible();
 if (!panelVisible) issues.push("booking panel not visible");
 
+for (const [name, pathname] of [
+  ["help", "/help"],
+  ["tutorial", "/tutorial"],
+  ["emergency", "/emergency"],
+  ["locations", "/locations"],
+  ["premium-detail", "/facilities/gor-indoor"],
+]) {
+  await page.goto(`${base}${pathname}`, { waitUntil: "networkidle" });
+  await page.screenshot({ path: path.join(output, `${name}.png`), fullPage: false });
+  if (!(await page.locator("h1").first().isVisible())) issues.push(`${name} heading missing`);
+  if (name === "premium-detail" && !(await page.getByText(/300\.000/).first().isVisible())) {
+    issues.push("premium tariff not visible");
+  }
+}
+
 const mobile = await pageFor({ width: 390, height: 844 });
 await mobile.page.goto(base, { waitUntil: "networkidle" });
 await mobile.page.screenshot({ path: path.join(output, "home-mobile.png"), fullPage: false });
@@ -77,6 +92,9 @@ await student.page.waitForURL("**/dashboard", { timeout: 20_000 });
 await student.page.waitForLoadState("networkidle");
 await student.page.screenshot({ path: path.join(output, "dashboard.png"), fullPage: false });
 if (!student.page.url().includes("/dashboard")) issues.push("student login did not reach dashboard");
+await student.page.goto(`${base}/settings`, { waitUntil: "networkidle" });
+await student.page.screenshot({ path: path.join(output, "settings.png"), fullPage: false });
+if (!(await student.page.locator(".settings-form").first().isVisible())) issues.push("profile settings form not visible");
 await student.context.close();
 
 const admin = await pageFor();
@@ -100,6 +118,6 @@ if (issues.length) {
   for (const issue of issues) console.log("-", issue);
   process.exitCode = 1;
 } else {
-  console.log("Visual checks passed: desktop, mobile, student dashboard, admin.");
+  console.log("Visual checks passed: public pages, premium tariff, mobile, settings, dashboard, admin.");
 }
 console.log(`Screenshots: ${output}`);

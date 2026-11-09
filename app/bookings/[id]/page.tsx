@@ -13,10 +13,13 @@ import {
   Users,
 } from "lucide-react";
 import { CancelBooking } from "@/components/admin-actions";
+import { PaymentButton } from "@/components/payment-button";
 import { BookingBadge } from "@/components/status-badge";
 import { requireUser } from "@/lib/auth";
 import { createCheckinToken, getBookingById } from "@/lib/bookings";
 import { CATEGORY_META } from "@/lib/constants";
+import { formatRupiah } from "@/lib/format";
+import { isMidtransConfigured } from "@/lib/payments";
 import { formatDate, formatDateTime, formatRange } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +39,7 @@ export default async function BookingTicketPage({
 
   const canShowQr = ["approved", "checked_in", "completed"].includes(booking.status);
   const checkinToken = canShowQr ? createCheckinToken(booking.id, booking.endsAt) : "";
+  const paymentsEnabled = isMidtransConfigured();
   const statusCopy: Record<string, string> = {
     pending: "Menunggu persetujuan pengelola",
     approved: "Disetujui · siap check-in",
@@ -150,6 +154,22 @@ export default async function BookingTicketPage({
                 <CalendarDays size={12} /> Buffer persiapan dan pembersihan 15 menit
                 sudah dihitung dalam slot. Datang 10 menit lebih awal untuk verifikasi.
               </p>
+              {booking.paymentStatus === "paid" || booking.status === "approved" ? (
+                <PaymentButton
+                  bookingId={booking.id}
+                  amountDue={booking.amountDue}
+                  status={booking.paymentStatus}
+                  configured={paymentsEnabled}
+                />
+              ) : booking.amountDue > 0 && booking.status === "pending" ? (
+                <div className="payment-box">
+                  <div>
+                    <span className="eyebrow">Pembayaran</span>
+                    <strong>{formatRupiah(booking.amountDue)}</strong>
+                    <small>Pembayaran dibuka setelah booking disetujui pengelola.</small>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="ticket-actions">
                 <Link href="/dashboard" className="button button-small">

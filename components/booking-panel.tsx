@@ -13,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { BOOKING_STATUS_META } from "@/lib/constants";
+import { formatRupiah } from "@/lib/format";
 import type { AvailabilityBooking, AvailabilityDay, Facility } from "@/lib/types";
 import {
   addDays,
@@ -44,6 +45,7 @@ export function BookingPanel({
   week,
   today,
   signedIn,
+  defaultOrganization = "",
   loginHref,
 }: {
   facility: Facility;
@@ -52,6 +54,7 @@ export function BookingPanel({
   week: AvailabilityDay[];
   today: string;
   signedIn: boolean;
+  defaultOrganization?: string;
   loginHref: string;
 }) {
   const [date, setDate] = useState(initialDate);
@@ -59,7 +62,7 @@ export function BookingPanel({
   const [end, setEnd] = useState("11:00");
   const [attendees, setAttendees] = useState(Math.min(10, facility.capacity));
   const [purpose, setPurpose] = useState("");
-  const [organization, setOrganization] = useState("");
+  const [organization, setOrganization] = useState(defaultOrganization);
   const [contactPhone, setContactPhone] = useState("");
   const [agreement, setAgreement] = useState(false);
   const [availability, setAvailability] = useState(initialAvailability);
@@ -73,6 +76,10 @@ export function BookingPanel({
     [facility.opensAt, facility.closesAt],
   );
   const endOptions = useMemo(() => timeOptions(facility.opensAt, facility.closesAt), [facility.opensAt, facility.closesAt]);
+  const estimatedAmount =
+    facility.pricePerHour > 0
+      ? facility.pricePerHour * Math.ceil(Math.max(0, minutesFromTime(end) - minutesFromTime(start)) / 60)
+      : 0;
 
   useEffect(() => {
     let active = true;
@@ -264,7 +271,9 @@ export function BookingPanel({
               Referensi <b>{success.reference}</b>.{" "}
               {success.status === "pending"
                 ? "Pengelola fasilitas akan meninjau permintaan Anda."
-                : "Tiket dan QR check-in sudah tersedia."}
+                : success.status === "approved" && facility.pricePerHour > 0
+                  ? "Tiket sudah dibuat. Selesaikan pembayaran untuk membuka check-in."
+                  : "Tiket dan QR check-in sudah tersedia."}
             </p>
             <div className="success-actions">
               <Link href={`/bookings/${success.id}`} className="button button-small">
@@ -372,6 +381,13 @@ export function BookingPanel({
               fasilitas setelah digunakan.
             </span>
           </label>
+          {estimatedAmount > 0 && (
+            <div className="booking-estimate">
+              <span>Estimasi tarif</span>
+              <strong>{formatRupiah(estimatedAmount)}</strong>
+              <small>Dibayar setelah booking via Midtrans. Check-in setelah lunas.</small>
+            </div>
+          )}
           {error && <p className="form-error">{error}</p>}
           <button
             type="submit"

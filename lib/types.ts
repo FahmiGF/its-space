@@ -1,6 +1,7 @@
 export type UserRole = "student" | "staff" | "admin";
 export type FacilityCategory = "sports" | "auditorium" | "meeting" | "lab" | "studio" | "outdoor";
 export type FacilityStatus = "active" | "maintenance" | "closed";
+export type PaymentStatus = "none" | "pending" | "paid" | "failed" | "expired" | "refunded";
 export type BookingStatus =
   | "pending"
   | "approved"
@@ -32,6 +33,7 @@ export type Facility = {
   rules: string[];
   imageUrl: string | null;
   requiresApproval: boolean;
+  pricePerHour: number;
   status: FacilityStatus;
   opensAt: string;
   closesAt: string;
@@ -57,6 +59,7 @@ export type FacilityCard = Pick<
   | "amenities"
   | "imageUrl"
   | "requiresApproval"
+  | "pricePerHour"
   | "status"
   | "opensAt"
   | "closesAt"
@@ -97,6 +100,8 @@ export type Booking = {
   createdAt: string;
   approvedAt: string | null;
   checkedInAt: string | null;
+  amountDue: number;
+  paymentStatus: PaymentStatus;
   facility: {
     id: string;
     slug: string;
@@ -114,6 +119,19 @@ export type Booking = {
     email: string;
     organization: string | null;
   };
+};
+
+export type UserProfile = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  organization: string | null;
+  phone: string | null;
+  notifyBooking: boolean;
+  notifyReminders: boolean;
+  notifyAnnouncements: boolean;
+  createdAt: string;
 };
 
 export type FacilityFilters = {

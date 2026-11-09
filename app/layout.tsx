@@ -5,6 +5,7 @@ import "./globals.css";
 import "./components.css";
 import "./pages.css";
 import "./responsive.css";
+import "./features.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { MobileDock } from "@/components/mobile-dock";

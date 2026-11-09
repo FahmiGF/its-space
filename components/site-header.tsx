@@ -1,8 +1,12 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
+  CircleHelp,
   LayoutDashboard,
+  MapPin,
   Menu,
+  PhoneCall,
+  Settings,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
@@ -28,7 +32,8 @@ export async function SiteHeader() {
         <Logo />
         <nav className="desktop-nav" aria-label="Navigasi utama">
           <Link href="/explore">Jelajahi</Link>
-          <Link href="/#cara-kerja">Cara kerja</Link>
+          <Link href="/locations">Lokasi</Link>
+          <Link href="/help">Bantuan</Link>
           <Link href="/status">Status</Link>
           {user && <Link href="/dashboard">Booking saya</Link>}
         </nav>
@@ -41,6 +46,9 @@ export async function SiteHeader() {
                   Admin
                 </Link>
               )}
+              <Link href="/settings" className="header-settings" aria-label="Pengaturan profil">
+                <Settings size={17} />
+              </Link>
               <Link href="/dashboard" className="user-chip" aria-label="Buka dashboard">
                 <span className="avatar">{initials(user.name)}</span>
                 <span className="user-chip-copy">
@@ -69,12 +77,18 @@ export async function SiteHeader() {
             </summary>
             <div className="mobile-menu-panel">
               <Link href="/explore">Jelajahi fasilitas</Link>
+              <Link href="/locations"><MapPin size={16} /> Lokasi kampus</Link>
               <Link href="/#cara-kerja">Cara kerja</Link>
               <Link href="/status">Status sistem</Link>
+              <Link href="/help"><CircleHelp size={16} /> Bantuan & FAQ</Link>
+              <Link href="/emergency"><PhoneCall size={16} /> Emergency call</Link>
               {user ? (
                 <>
                   <Link href="/dashboard">
                     <LayoutDashboard size={16} /> Booking saya
+                  </Link>
+                  <Link href="/settings">
+                    <Settings size={16} /> Pengaturan profil
                   </Link>
                   {user.role === "admin" && (
                     <Link href="/admin">

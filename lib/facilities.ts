@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { query } from "./db";
 import { ACTIVE_BOOKING_STATUSES, CATEGORY_META } from "./constants";
 import {
@@ -36,6 +37,7 @@ type FacilityRow = {
   rules: string[];
   image_url: string | null;
   requires_approval: boolean;
+  price_per_hour: number;
   status: FacilityStatus;
   opens_at: string;
   closes_at: string;
@@ -63,6 +65,7 @@ function mapFacility(row: FacilityRow): Facility {
     rules: row.rules,
     imageUrl: row.image_url,
     requiresApproval: row.requires_approval,
+    pricePerHour: row.price_per_hour,
     status: row.status,
     opensAt: row.opens_at.slice(0, 5),
     closesAt: row.closes_at.slice(0, 5),
@@ -152,7 +155,7 @@ export async function getFacilities(filters: FacilityFilters = {}): Promise<Faci
   return rows.map(mapFacility);
 }
 
-export async function getFacilityBySlug(slug: string): Promise<Facility | null> {
+export const getFacilityBySlug = cache(async (slug: string): Promise<Facility | null> => {
   const rows = await query<FacilityRow>(
     `SELECT f.*, b.name AS building_name, b.code AS building_code,
             c.name AS campus_name, i.name AS institution_name
@@ -165,7 +168,7 @@ export async function getFacilityBySlug(slug: string): Promise<Facility | null> 
     [slug],
   );
   return rows[0] ? mapFacility(rows[0]) : null;
-}
+});
 
 export async function getFacilityById(id: string): Promise<Facility | null> {
   const rows = await query<FacilityRow>(
@@ -311,8 +314,53 @@ export async function getNextAvailableLabel(slug: string): Promise<string> {
 }
 
 export async function getFeaturedFacilities(limit = 4): Promise<FacilityCard[]> {
-  const facilities = await getFacilities();
-  return facilities.filter((facility) => facility.featured).slice(0, limit);
+  const rows = await query<FacilityRow>(
+    `SELECT f.*, b.name AS building_name, b.code AS building_code, c.name AS campus_name
+     FROM facilities f
+     JOIN buildings b ON b.id = f.building_id
+     JOIN campuses c ON c.id = b.campus_id
+     WHERE f.status = 'active' AND f.featured = true
+     ORDER BY f.capacity DESC, f.name ASC
+     LIMIT $1`,
+    [limit],
+  );
+  return rows.map(mapFacility);
+}
+
+export type CampusLocation = {
+  code: string;
+  name: string;
+  mapX: number;
+  mapY: number;
+  count: number;
+  categories: FacilityCategory[];
+};
+
+export async function getCampusLocations(): Promise<CampusLocation[]> {
+  const rows = await query<{
+    code: string;
+    name: string;
+    map_x: string | number;
+    map_y: string | number;
+    count: number;
+    categories: FacilityCategory[];
+  }>(
+    `SELECT b.code, b.name, b.map_x, b.map_y,
+            count(f.id)::int AS count,
+            COALESCE(array_agg(DISTINCT f.category) FILTER (WHERE f.category IS NOT NULL), '{}') AS categories
+     FROM buildings b
+     LEFT JOIN facilities f ON f.building_id = b.id AND f.status = 'active'
+     GROUP BY b.id, b.code, b.name, b.map_x, b.map_y
+     ORDER BY b.name`,
+  );
+  return rows.map((row) => ({
+    code: row.code,
+    name: row.name,
+    mapX: Number(row.map_x),
+    mapY: Number(row.map_y),
+    count: row.count,
+    categories: row.categories,
+  }));
 }
 
 export async function getFacilityCount(): Promise<number> {

@@ -38,7 +38,20 @@ export const BUILDING_CODES: Record<string, string> = {
   ARENA: "Arena Olahraga",
   LAB7: "Labtek VII",
   ROB: "Gedung Robotika",
+  GKU: "Gedung Kuliah Umum",
+  LAB1: "Labtek I",
+  GOR: "GOR Indoor",
+  PLAZA: "Plaza Kreatif",
 };
+
+export const PAYMENT_STATUS_LABEL = {
+  none: "Tidak diperlukan",
+  pending: "Menunggu pembayaran",
+  paid: "Lunas",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
+  refunded: "Dikembalikan",
+} as const;
 
 export const ACTIVE_BOOKING_STATUSES: BookingStatus[] = [
   "pending",
